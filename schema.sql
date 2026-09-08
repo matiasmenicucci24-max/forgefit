@@ -1,8 +1,25 @@
--- ForgeFit — esquema de base de datos para Supabase (Postgres)
--- Correr esto en el editor SQL de tu proyecto de Supabase (SQL Editor > New query)
+-- ForgeFit — esquema de base de datos MULTIUSUARIO para Supabase (Postgres)
+-- Correr esto completo en el SQL Editor de tu proyecto de Supabase.
+--
+-- ADVERTENCIA: este script BORRA las tablas anteriores (de la versión sin
+-- login) y las vuelve a crear con soporte multiusuario. Si tenías datos de
+-- prueba cargados, se van a perder — no había forma de asociarlos a una
+-- cuenta real porque no existían las cuentas todavía.
 
-create table if not exists historial (
+drop table if exists historial cascade;
+drop table if exists rutinas_generadas cascade;
+drop table if exists dietas_generadas cascade;
+drop table if exists habitos_dia cascade;
+drop table if exists habitos_config cascade;
+drop table if exists medidas cascade;
+drop table if exists fotos_progreso cascade;
+drop table if exists perfil cascade;
+
+-- ---------- Historial de cálculos ----------
+
+create table historial (
     id bigint generated always as identity primary key,
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
     fecha timestamptz not null default now(),
     peso numeric not null,
     altura numeric not null,
@@ -20,8 +37,11 @@ create table if not exists historial (
     agua_litros numeric
 );
 
-create table if not exists rutinas_generadas (
+-- ---------- Rutinas generadas ----------
+
+create table rutinas_generadas (
     id bigint generated always as identity primary key,
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
     fecha timestamptz not null default now(),
     objetivo text not null check (objetivo in ('bajar', 'mantener', 'subir')),
     nivel text not null check (nivel in ('principiante', 'intermedio', 'avanzado')),
@@ -29,8 +49,11 @@ create table if not exists rutinas_generadas (
     plan jsonb not null
 );
 
-create table if not exists dietas_generadas (
+-- ---------- Dietas generadas ----------
+
+create table dietas_generadas (
     id bigint generated always as identity primary key,
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
     fecha timestamptz not null default now(),
     calorias_objetivo numeric not null,
     proteinas_g numeric,
@@ -39,19 +62,27 @@ create table if not exists dietas_generadas (
     plan jsonb not null
 );
 
-create table if not exists habitos_dia (
-    fecha date primary key,
-    completados jsonb not null default '[]'::jsonb
+-- ---------- Hábitos diarios (una fila por usuario y día) ----------
+
+create table habitos_dia (
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+    fecha date not null,
+    completados jsonb not null default '[]'::jsonb,
+    primary key (user_id, fecha)
 );
 
-create table if not exists habitos_config (
-    id int primary key default 1,
-    seleccionados jsonb not null default '[]'::jsonb,
-    constraint solo_una_fila check (id = 1)
+-- ---------- Selección de hábitos (una fila por usuario) ----------
+
+create table habitos_config (
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade primary key,
+    seleccionados jsonb not null default '[]'::jsonb
 );
 
-create table if not exists medidas (
+-- ---------- Medidas corporales ----------
+
+create table medidas (
     id bigint generated always as identity primary key,
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
     fecha timestamptz not null default now(),
     peso numeric,
     cintura numeric,
@@ -61,37 +92,67 @@ create table if not exists medidas (
     pierna numeric
 );
 
-create table if not exists fotos_progreso (
+-- ---------- Fotos de progreso ----------
+
+create table fotos_progreso (
     id bigint generated always as identity primary key,
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
     fecha timestamptz not null default now(),
     imagen_base64 text not null,
     nota text
 );
 
-create table if not exists perfil (
-    id int primary key default 1,
+-- ---------- Perfil (una fila por usuario) ----------
+
+create table perfil (
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade primary key,
     peso numeric,
     altura numeric,
     edad integer,
     sexo text,
     nivel_actividad text,
-    objetivo text,
-    constraint perfil_solo_una_fila check (id = 1)
+    objetivo text
 );
 
--- Índices para ordenar por fecha rápido en el historial
-create index if not exists idx_historial_fecha on historial (fecha desc);
-create index if not exists idx_rutinas_fecha on rutinas_generadas (fecha desc);
-create index if not exists idx_dietas_fecha on dietas_generadas (fecha desc);
-create index if not exists idx_medidas_fecha on medidas (fecha desc);
-create index if not exists idx_fotos_fecha on fotos_progreso (fecha desc);
+-- ---------- Índices ----------
 
--- Desactivamos RLS en todas las tablas: la app es de uso individual, sin login.
-alter table historial disable row level security;
-alter table rutinas_generadas disable row level security;
-alter table dietas_generadas disable row level security;
-alter table habitos_dia disable row level security;
-alter table habitos_config disable row level security;
-alter table medidas disable row level security;
-alter table fotos_progreso disable row level security;
-alter table perfil disable row level security;
+create index idx_historial_usuario_fecha on historial (user_id, fecha desc);
+create index idx_rutinas_usuario_fecha on rutinas_generadas (user_id, fecha desc);
+create index idx_dietas_usuario_fecha on dietas_generadas (user_id, fecha desc);
+create index idx_medidas_usuario_fecha on medidas (user_id, fecha desc);
+create index idx_fotos_usuario_fecha on fotos_progreso (user_id, fecha desc);
+
+-- ---------- Row Level Security: cada usuario solo ve y modifica sus datos ----------
+
+alter table historial enable row level security;
+alter table rutinas_generadas enable row level security;
+alter table dietas_generadas enable row level security;
+alter table habitos_dia enable row level security;
+alter table habitos_config enable row level security;
+alter table medidas enable row level security;
+alter table fotos_progreso enable row level security;
+alter table perfil enable row level security;
+
+create policy "cada usuario ve y edita solo lo suyo" on historial
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on rutinas_generadas
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on dietas_generadas
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on habitos_dia
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on habitos_config
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on medidas
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on fotos_progreso
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on perfil
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
