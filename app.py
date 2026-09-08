@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import calculos
 import rutinas
 import dietas
+import habitos
 import database
 
 load_dotenv()  # carga SUPABASE_URL y SUPABASE_KEY desde el archivo .env
@@ -35,6 +36,11 @@ def pagina_dietas():
 @app.route("/historial")
 def pagina_historial():
     return render_template("historial.html")
+
+
+@app.route("/habitos")
+def pagina_habitos():
+    return render_template("habitos.html")
 
 
 # ---------- API: Calculadora ----------
@@ -140,6 +146,43 @@ def api_borrar_historial(item_id):
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 200
     return jsonify({"ok": True})
+
+
+@app.route("/api/habitos/hoy", methods=["GET"])
+def api_habitos_hoy():
+    fecha = habitos.hoy_iso()
+    try:
+        completados = database.obtener_completados_del_dia(fecha)
+    except RuntimeError as e:
+        estado = habitos.armar_estado_dia([])
+        estado["aviso"] = str(e)
+        return jsonify(estado)
+
+    return jsonify(habitos.armar_estado_dia(completados))
+
+
+@app.route("/api/habitos/toggle", methods=["POST"])
+def api_habitos_toggle():
+    datos = request.get_json(force=True)
+    habito_id = datos.get("habito_id")
+    if not habito_id:
+        return jsonify({"error": "Falta habito_id"}), 400
+
+    fecha = habitos.hoy_iso()
+
+    try:
+        completados = database.obtener_completados_del_dia(fecha)
+        if habito_id in completados:
+            completados.remove(habito_id)
+        else:
+            completados.append(habito_id)
+        database.guardar_completados_del_dia(fecha, completados)
+    except RuntimeError as e:
+        estado = habitos.armar_estado_dia([])
+        estado["aviso"] = str(e)
+        return jsonify(estado)
+
+    return jsonify(habitos.armar_estado_dia(completados))
 
 
 if __name__ == "__main__":

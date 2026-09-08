@@ -39,7 +39,18 @@ create table if not exists dietas_generadas (
     plan jsonb not null
 );
 
+create table if not exists habitos_dia (
+    fecha date primary key,
+    completados jsonb not null default '[]'::jsonb
+);
+
 -- Índices para ordenar por fecha rápido en el historial
 create index if not exists idx_historial_fecha on historial (fecha desc);
 create index if not exists idx_rutinas_fecha on rutinas_generadas (fecha desc);
 create index if not exists idx_dietas_fecha on dietas_generadas (fecha desc);
+
+-- Desactivamos RLS en todas las tablas: la app es de uso individual, sin login.
+alter table historial disable row level security;
+alter table rutinas_generadas disable row level security;
+alter table dietas_generadas disable row level security;
+alter table habitos_dia disable row level security;

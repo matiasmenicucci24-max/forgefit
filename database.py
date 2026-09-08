@@ -97,3 +97,25 @@ def obtener_dietas(limite: int = 20) -> list:
         .execute()
     )
     return respuesta.data
+
+
+# ---------- Hábitos diarios ----------
+
+def obtener_completados_del_dia(fecha_iso: str) -> list:
+    respuesta = (
+        get_client()
+        .table("habitos_dia")
+        .select("completados")
+        .eq("fecha", fecha_iso)
+        .execute()
+    )
+    if respuesta.data:
+        return respuesta.data[0].get("completados") or []
+    return []
+
+
+def guardar_completados_del_dia(fecha_iso: str, completados_ids: list) -> None:
+    get_client().table("habitos_dia").upsert(
+        {"fecha": fecha_iso, "completados": completados_ids},
+        on_conflict="fecha",
+    ).execute()
