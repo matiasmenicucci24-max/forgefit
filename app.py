@@ -1,7 +1,15 @@
 """
 app.py
 Servidor Flask de ForgeFit. Sirve las páginas y expone la API que consume el frontend.
+
+Nota de rendimiento: los endpoints que generan un resultado (calcular, rutinas, dietas,
+hábitos) devuelven la respuesta al instante y guardan en Supabase en un hilo aparte
+en segundo plano, para que la app se sienta rápida aunque la conexión a internet
+o a Supabase tarde un poco. Los endpoints de lectura (historial, medidas, fotos, racha)
+siguen siendo síncronos porque necesitan el dato real antes de responder.
 """
+import threading
+
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
@@ -15,6 +23,17 @@ import database
 load_dotenv()  # carga SUPABASE_URL y SUPABASE_KEY desde el archivo .env
 
 app = Flask(__name__)
+
+
+def _guardar_en_segundo_plano(func, *args, **kwargs):
+    """Corre una función de guardado en un hilo aparte, sin bloquear la respuesta."""
+    def _run():
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            print(f"[guardado en segundo plano] error en {func.__name__}: {e}")
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 # ---------- Páginas ----------
@@ -84,12 +103,19 @@ def api_calcular():
     }
 
     try:
-        guardado = database.guardar_calculo(entrada, resultados)
+        database.get_client()  # chequeo rápido: solo detecta si faltan credenciales
     except RuntimeError as e:
-        # Si Supabase no está configurado todavía, devolvemos el cálculo igual
-        return jsonify({**resultados, "aviso": str(e)})
+        return jsonify({**entrada, **resultados, "aviso": str(e)})
 
-    return jsonify(guardado)
+    _guardar_en_segundo_plano(database.guardar_calculo, entrada, resultados)
+    # Guardamos también los datos básicos del perfil (altura/edad/sexo/nivel de actividad)
+    # para no tener que volver a pedirlos la próxima vez que entrés.
+    _guardar_en_segundo_plano(database.guardar_perfil, {
+        "altura": altura, "edad": edad, "sexo": datos["sexo"],
+        "nivel_actividad": datos["nivel_actividad"],
+    })
+
+    return jsonify({**entrada, **resultados})
 
 
 # ---------- API: Rutinas ----------
@@ -105,10 +131,12 @@ def api_generar_rutina():
     rutina = rutinas.generar_rutina(objetivo, nivel, dias)
 
     try:
-        database.guardar_rutina(rutina)
+        database.get_client()
     except RuntimeError as e:
         rutina["aviso"] = str(e)
+        return jsonify(rutina)
 
+    _guardar_en_segundo_plano(database.guardar_rutina, rutina)
     return jsonify(rutina)
 
 
@@ -127,10 +155,12 @@ def api_generar_dieta():
     dieta = dietas.generar_dieta(calorias_objetivo, variacion)
 
     try:
-        database.guardar_dieta(dieta)
+        database.get_client()
     except RuntimeError as e:
         dieta["aviso"] = str(e)
+        return jsonify(dieta)
 
+    _guardar_en_segundo_plano(database.guardar_dieta, dieta)
     return jsonify(dieta)
 
 
@@ -154,68 +184,66 @@ def api_borrar_historial(item_id):
     return jsonify({"ok": True})
 
 
+# ---------- API: Hábitos ----------
+
 @app.route("/api/habitos/catalogo", methods=["GET"])
 def api_habitos_catalogo():
     return jsonify(habitos.obtener_catalogo())
-
-
-@app.route("/api/habitos/seleccion", methods=["GET"])
-def api_habitos_seleccion_get():
-    try:
-        seleccion = database.obtener_seleccion_habitos()
-    except RuntimeError as e:
-        return jsonify({"seleccion": habitos.SELECCION_POR_DEFECTO, "aviso": str(e)})
-    return jsonify({"seleccion": seleccion or habitos.SELECCION_POR_DEFECTO})
 
 
 @app.route("/api/habitos/seleccion", methods=["POST"])
 def api_habitos_seleccion_post():
     datos = request.get_json(force=True)
     seleccion = datos.get("seleccion", [])
+
     try:
-        database.guardar_seleccion_habitos(seleccion)
+        database.get_client()
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 200
+
+    _guardar_en_segundo_plano(database.guardar_seleccion_habitos, seleccion)
     return jsonify({"ok": True, "seleccion": seleccion})
 
 
 @app.route("/api/habitos/hoy", methods=["GET"])
 def api_habitos_hoy():
+    """Única lectura síncrona necesaria: trae el estado inicial al cargar la página.
+    A partir de acá, el frontend guarda todo en memoria y ya no vuelve a esperar
+    una lectura de la base de datos para reaccionar a un click."""
     fecha = habitos.hoy_iso()
     try:
         completados = database.obtener_completados_del_dia(fecha)
         seleccion = database.obtener_seleccion_habitos()
     except RuntimeError as e:
         estado = habitos.armar_estado_dia([], [])
+        estado["seleccion"] = habitos.SELECCION_POR_DEFECTO
         estado["aviso"] = str(e)
         return jsonify(estado)
 
-    return jsonify(habitos.armar_estado_dia(completados, seleccion))
+    estado = habitos.armar_estado_dia(completados, seleccion)
+    estado["seleccion"] = seleccion if seleccion else habitos.SELECCION_POR_DEFECTO
+    return jsonify(estado)
 
 
-@app.route("/api/habitos/toggle", methods=["POST"])
-def api_habitos_toggle():
+@app.route("/api/habitos/completados", methods=["POST"])
+def api_habitos_completados():
+    """Recibe la lista completa de hábitos completados hoy (ya calculada en el
+    navegador) y la guarda en segundo plano, sin hacer una lectura previa."""
     datos = request.get_json(force=True)
-    habito_id = datos.get("habito_id")
-    if not habito_id:
-        return jsonify({"error": "Falta habito_id"}), 400
-
+    completados = datos.get("completados", [])
+    seleccion = datos.get("seleccion", [])
     fecha = habitos.hoy_iso()
 
+    estado = habitos.armar_estado_dia(completados, seleccion)
+
     try:
-        completados = database.obtener_completados_del_dia(fecha)
-        if habito_id in completados:
-            completados.remove(habito_id)
-        else:
-            completados.append(habito_id)
-        database.guardar_completados_del_dia(fecha, completados)
-        seleccion = database.obtener_seleccion_habitos()
+        database.get_client()
     except RuntimeError as e:
-        estado = habitos.armar_estado_dia([], [])
         estado["aviso"] = str(e)
         return jsonify(estado)
 
-    return jsonify(habitos.armar_estado_dia(completados, seleccion))
+    _guardar_en_segundo_plano(database.guardar_completados_del_dia, fecha, completados)
+    return jsonify(estado)
 
 
 @app.route("/api/habitos/racha", methods=["GET"])
@@ -225,6 +253,17 @@ def api_habitos_racha():
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 200
     return jsonify(habitos.calcular_racha(historial_habitos))
+
+
+# ---------- API: Perfil (para no repetir tus datos básicos cada vez) ----------
+
+@app.route("/api/perfil", methods=["GET"])
+def api_perfil_get():
+    try:
+        perfil = database.obtener_perfil()
+    except RuntimeError as e:
+        return jsonify({"perfil": None, "aviso": str(e)})
+    return jsonify({"perfil": perfil})
 
 
 # ---------- API: Medidas corporales ----------
@@ -283,7 +322,6 @@ def api_guardar_foto():
     if not imagen_base64:
         return jsonify({"error": "Falta la imagen"}), 400
 
-    # Límite de tamaño generoso pero razonable (~2MB en base64) para no saturar la tabla.
     if len(imagen_base64) > 2_800_000:
         return jsonify({"error": "La imagen es muy pesada, probá con una más chica"}), 400
 
@@ -328,4 +366,4 @@ def api_resumen_semanal():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, threaded=True)

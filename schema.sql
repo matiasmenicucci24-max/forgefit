@@ -68,6 +68,17 @@ create table if not exists fotos_progreso (
     nota text
 );
 
+create table if not exists perfil (
+    id int primary key default 1,
+    peso numeric,
+    altura numeric,
+    edad integer,
+    sexo text,
+    nivel_actividad text,
+    objetivo text,
+    constraint perfil_solo_una_fila check (id = 1)
+);
+
 -- Índices para ordenar por fecha rápido en el historial
 create index if not exists idx_historial_fecha on historial (fecha desc);
 create index if not exists idx_rutinas_fecha on rutinas_generadas (fecha desc);
@@ -83,3 +94,4 @@ alter table habitos_dia disable row level security;
 alter table habitos_config disable row level security;
 alter table medidas disable row level security;
 alter table fotos_progreso disable row level security;
+alter table perfil disable row level security;

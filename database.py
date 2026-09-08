@@ -148,6 +148,18 @@ def guardar_seleccion_habitos(seleccion_ids: list) -> None:
     ).execute()
 
 
+# ---------- Perfil (datos básicos recordados) ----------
+
+def obtener_perfil() -> dict | None:
+    respuesta = get_client().table("perfil").select("*").eq("id", 1).execute()
+    return respuesta.data[0] if respuesta.data else None
+
+
+def guardar_perfil(datos: dict) -> None:
+    fila = {"id": 1, **datos}
+    get_client().table("perfil").upsert(fila, on_conflict="id").execute()
+
+
 # ---------- Medidas corporales ----------
 
 def guardar_medida(datos: dict) -> dict:
