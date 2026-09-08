@@ -44,13 +44,42 @@ create table if not exists habitos_dia (
     completados jsonb not null default '[]'::jsonb
 );
 
+create table if not exists habitos_config (
+    id int primary key default 1,
+    seleccionados jsonb not null default '[]'::jsonb,
+    constraint solo_una_fila check (id = 1)
+);
+
+create table if not exists medidas (
+    id bigint generated always as identity primary key,
+    fecha timestamptz not null default now(),
+    peso numeric,
+    cintura numeric,
+    cadera numeric,
+    pecho numeric,
+    brazo numeric,
+    pierna numeric
+);
+
+create table if not exists fotos_progreso (
+    id bigint generated always as identity primary key,
+    fecha timestamptz not null default now(),
+    imagen_base64 text not null,
+    nota text
+);
+
 -- Índices para ordenar por fecha rápido en el historial
 create index if not exists idx_historial_fecha on historial (fecha desc);
 create index if not exists idx_rutinas_fecha on rutinas_generadas (fecha desc);
 create index if not exists idx_dietas_fecha on dietas_generadas (fecha desc);
+create index if not exists idx_medidas_fecha on medidas (fecha desc);
+create index if not exists idx_fotos_fecha on fotos_progreso (fecha desc);
 
 -- Desactivamos RLS en todas las tablas: la app es de uso individual, sin login.
 alter table historial disable row level security;
 alter table rutinas_generadas disable row level security;
 alter table dietas_generadas disable row level security;
 alter table habitos_dia disable row level security;
+alter table habitos_config disable row level security;
+alter table medidas disable row level security;
+alter table fotos_progreso disable row level security;

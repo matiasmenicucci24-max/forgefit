@@ -119,3 +119,77 @@ def guardar_completados_del_dia(fecha_iso: str, completados_ids: list) -> None:
         {"fecha": fecha_iso, "completados": completados_ids},
         on_conflict="fecha",
     ).execute()
+
+
+def obtener_historial_habitos(dias: int = 120) -> list:
+    """Devuelve los últimos N días de habitos_dia (para calcular la racha)."""
+    respuesta = (
+        get_client()
+        .table("habitos_dia")
+        .select("fecha, completados")
+        .order("fecha", desc=True)
+        .limit(dias)
+        .execute()
+    )
+    return respuesta.data
+
+
+def obtener_seleccion_habitos() -> list:
+    respuesta = get_client().table("habitos_config").select("seleccionados").eq("id", 1).execute()
+    if respuesta.data:
+        return respuesta.data[0].get("seleccionados") or []
+    return []
+
+
+def guardar_seleccion_habitos(seleccion_ids: list) -> None:
+    get_client().table("habitos_config").upsert(
+        {"id": 1, "seleccionados": seleccion_ids},
+        on_conflict="id",
+    ).execute()
+
+
+# ---------- Medidas corporales ----------
+
+def guardar_medida(datos: dict) -> dict:
+    respuesta = get_client().table("medidas").insert(datos).execute()
+    return respuesta.data[0] if respuesta.data else datos
+
+
+def obtener_medidas(limite: int = 60) -> list:
+    respuesta = (
+        get_client()
+        .table("medidas")
+        .select("*")
+        .order("fecha", desc=True)
+        .limit(limite)
+        .execute()
+    )
+    return respuesta.data
+
+
+def borrar_medida(item_id: int) -> None:
+    get_client().table("medidas").delete().eq("id", item_id).execute()
+
+
+# ---------- Fotos de progreso ----------
+
+def guardar_foto(imagen_base64: str, nota: str = "") -> dict:
+    fila = {"imagen_base64": imagen_base64, "nota": nota}
+    respuesta = get_client().table("fotos_progreso").insert(fila).execute()
+    return respuesta.data[0] if respuesta.data else fila
+
+
+def obtener_fotos(limite: int = 40) -> list:
+    respuesta = (
+        get_client()
+        .table("fotos_progreso")
+        .select("*")
+        .order("fecha", desc=True)
+        .limit(limite)
+        .execute()
+    )
+    return respuesta.data
+
+
+def borrar_foto(item_id: int) -> None:
+    get_client().table("fotos_progreso").delete().eq("id", item_id).execute()
