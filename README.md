@@ -5,7 +5,7 @@ App fitness con calculadora de métricas corporales, generador de rutinas y gene
 ## Qué incluye
 
 - **Calculadora**: IMC, TMB (Mifflin-St Jeor), calorías diarias objetivo, macros y agua recomendada.
-- **Rutinas**: rutinas base según objetivo (bajar / mantener / subir), personalizables por nivel y días disponibles.
+- **Rutinas**: divididas científicamente por volumen y frecuencia de entrenamiento, basadas en metaanálisis de Schoenfeld et al. (2017, 2019) y las guías ACSM (2009/2026). El volumen de fuerza se mantiene igual en "bajar peso" que en "mantener" (la evidencia muestra que reducirlo durante un déficit no ayuda a preservar músculo), sumando cardio aparte. Cada rutina muestra el volumen semanal real por grupo muscular.
 - **Dietas**: plan de comidas simple (desayuno/almuerzo/merienda/cena) ajustado a tus calorías objetivo.
 - **Hábitos**: elegí tus propios hábitos físicos y mentales de un catálogo de 16, marcalos cada día y mirá tu anillo de progreso llenarse. Incluye racha de días consecutivos y medallas por hitos (3, 7, 14, 30, 60, 100 días).
 - **Progreso**: resumen semanal automático, registro de medidas corporales con gráfico de evolución, y galería de fotos de progreso.
