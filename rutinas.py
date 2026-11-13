@@ -23,7 +23,6 @@ Generador de rutinas basado en evidencia de ciencia del ejercicio:
 """
 import json
 import os
-from urllib.parse import quote_plus
 
 RUTA_EJERCICIOS = os.path.join(os.path.dirname(__file__), "datos", "ejercicios.json")
 
@@ -120,14 +119,12 @@ def _elegir_ejercicios(grupo: str, nivel: str, cantidad: int) -> list:
 
 def _armar_ejercicio(ejercicio: dict, grupo: str, nivel: str) -> dict:
     tipo = ejercicio.get("tipo", "aislamiento")
-    busqueda = quote_plus(f"{ejercicio['nombre']} técnica ejecución correcta")
     return {
         **ejercicio,
         "grupo": grupo,
         "series": SERIES_POR_NIVEL[nivel],
         "reps": REPS_POR_TIPO_Y_NIVEL[tipo][nivel],
         "descanso": DESCANSO_POR_TIPO[tipo],
-        "video": f"https://www.youtube.com/results?search_query={busqueda}",
     }
 
 

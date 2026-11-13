@@ -1,0 +1,56 @@
+{
+  "pecho": [
+    {"nombre": "Flexiones de brazos", "nivel": "principiante", "tipo": "compuesto"},
+    {"nombre": "Press de banca con mancuernas", "nivel": "intermedio", "tipo": "compuesto"},
+    {"nombre": "Press de banca con barra", "nivel": "avanzado", "tipo": "compuesto"},
+    {"nombre": "Press inclinado con mancuernas", "nivel": "intermedio", "tipo": "compuesto"},
+    {"nombre": "Aperturas con mancuernas", "nivel": "intermedio", "tipo": "aislamiento"},
+    {"nombre": "Cruce de poleas (aperturas)", "nivel": "avanzado", "tipo": "aislamiento"}
+  ],
+  "espalda": [
+    {"nombre": "Remo con mancuerna", "nivel": "principiante", "tipo": "compuesto"},
+    {"nombre": "Jalón al pecho (polea)", "nivel": "principiante", "tipo": "compuesto"},
+    {"nombre": "Dominadas asistidas", "nivel": "intermedio", "tipo": "compuesto"},
+    {"nombre": "Remo con barra", "nivel": "intermedio", "tipo": "compuesto"},
+    {"nombre": "Peso muerto", "nivel": "avanzado", "tipo": "compuesto"},
+    {"nombre": "Pull-over con mancuerna", "nivel": "intermedio", "tipo": "aislamiento"}
+  ],
+  "piernas": [
+    {"nombre": "Sentadilla con peso corporal", "nivel": "principiante", "tipo": "compuesto"},
+    {"nombre": "Prensa de piernas", "nivel": "principiante", "tipo": "compuesto"},
+    {"nombre": "Sentadilla con barra", "nivel": "intermedio", "tipo": "compuesto"},
+    {"nombre": "Peso muerto rumano", "nivel": "intermedio", "tipo": "compuesto"},
+    {"nombre": "Zancadas con mancuernas", "nivel": "principiante", "tipo": "compuesto"},
+    {"nombre": "Sentadilla búlgara", "nivel": "avanzado", "tipo": "compuesto"},
+    {"nombre": "Extensión de cuádriceps (máquina)", "nivel": "intermedio", "tipo": "aislamiento"},
+    {"nombre": "Curl femoral (máquina)", "nivel": "intermedio", "tipo": "aislamiento"},
+    {"nombre": "Elevación de talones (gemelos)", "nivel": "principiante", "tipo": "aislamiento"}
+  ],
+  "hombros": [
+    {"nombre": "Press militar con mancuernas", "nivel": "intermedio", "tipo": "compuesto"},
+    {"nombre": "Press militar con barra", "nivel": "avanzado", "tipo": "compuesto"},
+    {"nombre": "Elevaciones laterales", "nivel": "principiante", "tipo": "aislamiento"},
+    {"nombre": "Elevaciones posteriores (deltoides posterior)", "nivel": "intermedio", "tipo": "aislamiento"},
+    {"nombre": "Press Arnold", "nivel": "avanzado", "tipo": "compuesto"}
+  ],
+  "brazos": [
+    {"nombre": "Curl de bíceps con mancuernas", "nivel": "principiante", "tipo": "aislamiento"},
+    {"nombre": "Curl martillo", "nivel": "intermedio", "tipo": "aislamiento"},
+    {"nombre": "Extensión de tríceps en polea", "nivel": "intermedio", "tipo": "aislamiento"},
+    {"nombre": "Press francés con mancuerna", "nivel": "intermedio", "tipo": "aislamiento"},
+    {"nombre": "Fondos en banco (tríceps)", "nivel": "principiante", "tipo": "compuesto"},
+    {"nombre": "Press cerrado con barra", "nivel": "avanzado", "tipo": "compuesto"}
+  ],
+  "core": [
+    {"nombre": "Plancha abdominal", "nivel": "principiante", "tipo": "aislamiento"},
+    {"nombre": "Crunch abdominal", "nivel": "principiante", "tipo": "aislamiento"},
+    {"nombre": "Elevación de piernas colgado", "nivel": "avanzado", "tipo": "aislamiento"},
+    {"nombre": "Russian twist", "nivel": "intermedio", "tipo": "aislamiento"},
+    {"nombre": "Rueda abdominal (ab wheel)", "nivel": "avanzado", "tipo": "aislamiento"}
+  ],
+  "cardio": [
+    {"nombre": "Caminata rápida o cinta inclinada", "nivel": "principiante", "tipo": "cardio"},
+    {"nombre": "Bicicleta o elíptica", "nivel": "intermedio", "tipo": "cardio"},
+    {"nombre": "HIIT (intervalos de alta intensidad)", "nivel": "avanzado", "tipo": "cardio"}
+  ]
+}

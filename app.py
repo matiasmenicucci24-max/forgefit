@@ -13,8 +13,10 @@ hilo aparte en segundo plano, para que la app se sienta rápida.
 """
 import os
 import threading
+import time
+import functools
 
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory
 from dotenv import load_dotenv
 
 import calculos
@@ -25,18 +27,46 @@ import resumen
 import database
 import auth
 import asistente
+import entrenamiento
+import compras
 
 load_dotenv()
 
-app = Flask(__name__)
+# Los archivos estáticos viven en public/static: Vercel sirve todo lo que está
+# en public/ directo desde su CDN, y en local Flask los sirve desde la misma
+# carpeta, así que funciona igual en los dos lados.
+app = Flask(__name__, static_folder="public/static", static_url_path="/static")
+EN_VERCEL = bool(os.environ.get("VERCEL"))
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "cambiar-esta-clave-en-produccion")
 
-RUTAS_PUBLICAS = {"login", "signup", "static"}
+RUTAS_PUBLICAS = {"login", "signup", "static", "service_worker"}
+MARGEN_REFRESH_SEGUNDOS = 60  # renovamos el token 1 minuto antes de que venza
+
+
+def manejar_errores_api(func):
+    """Envuelve un endpoint /api/ para que NUNCA devuelva la página de error HTML
+    de Flask: cualquier excepción (token vencido, error de red con Supabase, etc.)
+    se convierte en un JSON prolijo. Sin esto, el frontend intenta hacer
+    resp.json() sobre una página HTML de error y la sección queda en blanco
+    sin ningún aviso — esta fue la causa de fondo de varios de los bugs reportados."""
+    @functools.wraps(func)
+    def envoltura(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except RuntimeError as e:
+            return jsonify({"error": str(e)}), 200
+        except Exception as e:
+            print(f"[error en /api endpoint '{func.__name__}']: {e}")
+            return jsonify({"error": "Hubo un problema al procesar el pedido. Probá de nuevo en un momento."}), 200
+    return envoltura
 
 
 @app.before_request
 def requerir_sesion():
-    """Protege todas las rutas menos login/signup/static y la API de esas páginas."""
+    """Protege todas las rutas menos login/signup/static y la API de esas páginas.
+    Además, si el access_token está por vencer, lo renueva solo usando el
+    refresh_token — antes esto no pasaba y, pasada ~1 hora de sesión, todos los
+    pedidos a Supabase empezaban a fallar en silencio."""
     endpoint = request.endpoint or ""
     if endpoint in RUTAS_PUBLICAS or endpoint.startswith("static"):
         return None
@@ -46,6 +76,19 @@ def requerir_sesion():
         if request.path.startswith("/api/"):
             return jsonify({"error": "Sesión expirada, iniciá sesión de nuevo."}), 401
         return redirect(url_for("login"))
+
+    expira_en = session.get("expires_at", 0)
+    if expira_en and time.time() > expira_en - MARGEN_REFRESH_SEGUNDOS:
+        resultado = auth.refrescar_sesion(session.get("refresh_token", ""))
+        if resultado.get("ok"):
+            session["access_token"] = resultado["access_token"]
+            session["refresh_token"] = resultado["refresh_token"]
+            session["expires_at"] = time.time() + resultado.get("expires_in", 3600)
+        else:
+            session.clear()
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Tu sesión venció. Iniciá sesión de nuevo."}), 401
+            return redirect(url_for("login"))
     return None
 
 
@@ -54,14 +97,21 @@ def token_actual() -> str:
 
 
 def _guardar_en_segundo_plano(func, *args, **kwargs):
-    """Corre una función de guardado en un hilo aparte, sin bloquear la respuesta."""
+    """Corre una función de guardado en un hilo aparte, sin bloquear la respuesta.
+
+    En Vercel (serverless) la función se congela apenas se envía la respuesta,
+    así que un hilo en segundo plano puede quedar a medias y perder el guardado.
+    Por eso ahí se guarda en el momento, antes de responder."""
     def _run():
         try:
             func(*args, **kwargs)
         except Exception as e:
             print(f"[guardado en segundo plano] error en {func.__name__}: {e}")
 
-    threading.Thread(target=_run, daemon=True).start()
+    if EN_VERCEL:
+        _run()
+    else:
+        threading.Thread(target=_run, daemon=True).start()
 
 
 # ---------- Autenticación ----------
@@ -95,6 +145,7 @@ def api_login():
 
     session["access_token"] = resultado["access_token"]
     session["refresh_token"] = resultado["refresh_token"]
+    session["expires_at"] = time.time() + resultado.get("expires_in", 3600)
     session["user_id"] = resultado["user_id"]
     session["email"] = resultado["email"]
     return jsonify({"ok": True})
@@ -124,6 +175,7 @@ def api_signup():
 
     session["access_token"] = resultado["access_token"]
     session["refresh_token"] = resultado["refresh_token"]
+    session["expires_at"] = time.time() + resultado.get("expires_in", 3600)
     session["user_id"] = resultado["user_id"]
     session["email"] = resultado["email"]
     return jsonify({"ok": True, "requiere_confirmacion": False})
@@ -133,6 +185,16 @@ def api_signup():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/sw.js")
+def service_worker():
+    """Se sirve desde la raíz (no desde /static/) para que el scope del
+    service worker cubra toda la app, no solo la carpeta static.
+    En Vercel este archivo (public/sw.js) lo entrega directamente la CDN."""
+    return send_from_directory(
+        os.path.join(app.root_path, "public"), "sw.js", mimetype="application/javascript"
+    )
 
 
 # ---------- Páginas ----------
@@ -167,9 +229,20 @@ def pagina_progreso():
     return render_template("progreso.html")
 
 
+@app.route("/entrenar")
+def pagina_entrenar():
+    return render_template("entrenar.html")
+
+
+@app.route("/compras")
+def pagina_compras():
+    return render_template("compras.html")
+
+
 # ---------- API: Calculadora ----------
 
 @app.route("/api/calcular", methods=["POST"])
+@manejar_errores_api
 def api_calcular():
     datos = request.get_json(force=True)
 
@@ -219,6 +292,7 @@ def api_calcular():
 # ---------- API: Rutinas ----------
 
 @app.route("/api/rutinas/generar", methods=["POST"])
+@manejar_errores_api
 def api_generar_rutina():
     datos = request.get_json(force=True)
 
@@ -235,13 +309,19 @@ def api_generar_rutina():
         rutina["aviso"] = str(e)
         return jsonify(rutina)
 
-    _guardar_en_segundo_plano(database.guardar_rutina, token, rutina)
+    # A diferencia de otros guardados, este se hace sincrónico (no en un hilo
+    # en segundo plano): necesitamos el id que devuelve Supabase al instante,
+    # para que el botón "Guardar como mi rutina activa" sepa qué rutina activar.
+    guardado = database.guardar_rutina(token, rutina)
+    rutina["id"] = guardado.get("id")
+    rutina["activa"] = False
     return jsonify(rutina)
 
 
 # ---------- API: Dietas ----------
 
 @app.route("/api/dietas/generar", methods=["POST"])
+@manejar_errores_api
 def api_generar_dieta():
     datos = request.get_json(force=True)
 
@@ -267,6 +347,7 @@ def api_generar_dieta():
 # ---------- API: Historial ----------
 
 @app.route("/api/historial", methods=["GET"])
+@manejar_errores_api
 def api_historial():
     try:
         registros = database.obtener_historial(token_actual())
@@ -276,6 +357,7 @@ def api_historial():
 
 
 @app.route("/api/historial/<int:item_id>", methods=["DELETE"])
+@manejar_errores_api
 def api_borrar_historial(item_id):
     try:
         database.borrar_historial_item(token_actual(), item_id)
@@ -287,11 +369,13 @@ def api_borrar_historial(item_id):
 # ---------- API: Hábitos ----------
 
 @app.route("/api/habitos/catalogo", methods=["GET"])
+@manejar_errores_api
 def api_habitos_catalogo():
     return jsonify(habitos.obtener_catalogo())
 
 
 @app.route("/api/habitos/seleccion", methods=["POST"])
+@manejar_errores_api
 def api_habitos_seleccion_post():
     datos = request.get_json(force=True)
     seleccion = datos.get("seleccion", [])
@@ -307,6 +391,7 @@ def api_habitos_seleccion_post():
 
 
 @app.route("/api/habitos/hoy", methods=["GET"])
+@manejar_errores_api
 def api_habitos_hoy():
     fecha = habitos.hoy_iso()
     token = token_actual()
@@ -325,6 +410,7 @@ def api_habitos_hoy():
 
 
 @app.route("/api/habitos/completados", methods=["POST"])
+@manejar_errores_api
 def api_habitos_completados():
     datos = request.get_json(force=True)
     completados = datos.get("completados", [])
@@ -345,6 +431,7 @@ def api_habitos_completados():
 
 
 @app.route("/api/habitos/racha", methods=["GET"])
+@manejar_errores_api
 def api_habitos_racha():
     try:
         historial_habitos = database.obtener_historial_habitos(token_actual())
@@ -356,6 +443,7 @@ def api_habitos_racha():
 # ---------- API: Perfil ----------
 
 @app.route("/api/perfil", methods=["GET"])
+@manejar_errores_api
 def api_perfil_get():
     try:
         perfil = database.obtener_perfil(token_actual())
@@ -367,6 +455,7 @@ def api_perfil_get():
 # ---------- API: Medidas corporales ----------
 
 @app.route("/api/medidas", methods=["POST"])
+@manejar_errores_api
 def api_guardar_medida():
     datos = request.get_json(force=True)
 
@@ -392,6 +481,7 @@ def api_guardar_medida():
 
 
 @app.route("/api/medidas", methods=["GET"])
+@manejar_errores_api
 def api_obtener_medidas():
     try:
         medidas = database.obtener_medidas(token_actual())
@@ -401,6 +491,7 @@ def api_obtener_medidas():
 
 
 @app.route("/api/medidas/<int:item_id>", methods=["DELETE"])
+@manejar_errores_api
 def api_borrar_medida(item_id):
     try:
         database.borrar_medida(token_actual(), item_id)
@@ -412,6 +503,7 @@ def api_borrar_medida(item_id):
 # ---------- API: Fotos de progreso ----------
 
 @app.route("/api/fotos", methods=["POST"])
+@manejar_errores_api
 def api_guardar_foto():
     datos = request.get_json(force=True)
     imagen_base64 = datos.get("imagen_base64")
@@ -431,6 +523,7 @@ def api_guardar_foto():
 
 
 @app.route("/api/fotos", methods=["GET"])
+@manejar_errores_api
 def api_obtener_fotos():
     try:
         fotos = database.obtener_fotos(token_actual())
@@ -440,6 +533,7 @@ def api_obtener_fotos():
 
 
 @app.route("/api/fotos/<int:item_id>", methods=["DELETE"])
+@manejar_errores_api
 def api_borrar_foto(item_id):
     try:
         database.borrar_foto(token_actual(), item_id)
@@ -451,6 +545,7 @@ def api_borrar_foto(item_id):
 # ---------- API: Resumen semanal ----------
 
 @app.route("/api/resumen-semanal", methods=["GET"])
+@manejar_errores_api
 def api_resumen_semanal():
     token = token_actual()
     try:
@@ -463,9 +558,213 @@ def api_resumen_semanal():
     return jsonify(resumen.calcular_resumen_semanal(historial, rutinas_generadas, habitos_dias))
 
 
+# ---------- API: Registro de entrenamientos ----------
+
+@app.route("/api/rutinas/ultima", methods=["GET"])
+@manejar_errores_api
+def api_rutina_ultima():
+    """Devuelve la última rutina generada, para saber qué ejercicios registrar hoy."""
+    try:
+        rutinas_guardadas = database.obtener_rutinas(token_actual(), limite=1)
+    except RuntimeError as e:
+        return jsonify({"rutina": None, "aviso": str(e)})
+
+    if not rutinas_guardadas:
+        return jsonify({"rutina": None})
+
+    return jsonify({"rutina": rutinas_guardadas[0].get("plan")})
+
+
+@app.route("/api/rutinas/activa", methods=["GET"])
+@manejar_errores_api
+def api_rutina_activa():
+    """Devuelve la rutina que el usuario marcó como 'activa' — la que usan
+    Entrenar y el resto de la app como referencia, sin tener que regenerarla
+    cada vez que cambia de sección."""
+    fila = database.obtener_rutina_activa(token_actual())
+    if not fila:
+        return jsonify({"rutina": None})
+
+    plan = fila.get("plan") or {}
+    plan["id"] = fila.get("id")
+    plan["activa"] = fila.get("activa", False)
+    return jsonify({"rutina": plan})
+
+
+@app.route("/api/rutinas/activar", methods=["POST"])
+@manejar_errores_api
+def api_activar_rutina():
+    """Marca una rutina generada (por su id) como la rutina activa del usuario."""
+    datos = request.get_json(force=True)
+    rutina_id = datos.get("id")
+    if not rutina_id:
+        return jsonify({"error": "Falta el id de la rutina a activar"}), 400
+
+    database.marcar_rutina_activa(token_actual(), rutina_id)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/dietas/ultima", methods=["GET"])
+@manejar_errores_api
+def api_dieta_ultima():
+    """Devuelve la última dieta generada, para armar la lista de compras."""
+    try:
+        dietas_guardadas = database.obtener_dietas(token_actual(), limite=1)
+    except RuntimeError as e:
+        return jsonify({"dieta": None, "aviso": str(e)})
+
+    if not dietas_guardadas:
+        return jsonify({"dieta": None})
+
+    return jsonify({"dieta": dietas_guardadas[0].get("plan")})
+
+
+@app.route("/api/entrenamiento/registrar-serie", methods=["POST"])
+@manejar_errores_api
+def api_registrar_serie():
+    datos = request.get_json(force=True)
+
+    campos_requeridos = ["ejercicio", "grupo", "serie_numero", "peso", "reps"]
+    faltantes = [c for c in campos_requeridos if datos.get(c) in (None, "")]
+    if faltantes:
+        return jsonify({"error": f"Faltan campos: {', '.join(faltantes)}"}), 400
+
+    try:
+        peso = float(datos["peso"])
+        reps = int(datos["reps"])
+        serie_numero = int(datos["serie_numero"])
+    except (ValueError, TypeError):
+        return jsonify({"error": "Peso, reps y número de serie deben ser numéricos."}), 400
+
+    if peso <= 0 or reps <= 0:
+        return jsonify({"error": "Peso y repeticiones deben ser mayores a cero."}), 400
+
+    token = token_actual()
+    try:
+        series_previas = database.obtener_series_ejercicio(token, datos["ejercicio"])
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 200
+
+    es_pr = entrenamiento.calcular_es_pr(peso, reps, series_previas)
+
+    fila = {
+        "ejercicio": datos["ejercicio"],
+        "grupo": datos["grupo"],
+        "serie_numero": serie_numero,
+        "peso": peso,
+        "reps": reps,
+        "es_pr": es_pr,
+    }
+
+    try:
+        guardado = database.guardar_serie(token, fila)
+    except RuntimeError as e:
+        return jsonify({**fila, "aviso": str(e)})
+
+    return jsonify(guardado)
+
+
+@app.route("/api/entrenamiento/progresion", methods=["GET"])
+@manejar_errores_api
+def api_progresion_ejercicio():
+    ejercicio = request.args.get("ejercicio", "")
+    if not ejercicio:
+        return jsonify({"error": "Falta el parámetro ejercicio"}), 400
+
+    try:
+        series = database.obtener_series_ejercicio(token_actual(), ejercicio)
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 200
+
+    return jsonify(entrenamiento.calcular_progresion_ejercicio(series))
+
+
+@app.route("/api/entrenamiento/ejercicios", methods=["GET"])
+@manejar_errores_api
+def api_ejercicios_registrados():
+    try:
+        ejercicios = database.obtener_ejercicios_registrados(token_actual())
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 200
+    return jsonify(ejercicios)
+
+
+@app.route("/api/entrenamiento/analytics", methods=["GET"])
+@manejar_errores_api
+def api_analytics_entrenamiento():
+    token = token_actual()
+    try:
+        series = database.obtener_todas_las_series(token, dias=90)
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 200
+
+    return jsonify({
+        "volumen_semanal": entrenamiento.calcular_volumen_semanal_real(series),
+        "calendario": entrenamiento.calcular_calendario_entrenado(series),
+        "total_series_registradas": len(series),
+        "volumen_ideal_min": entrenamiento.VOLUMEN_IDEAL_MIN,
+        "volumen_ideal_max": entrenamiento.VOLUMEN_IDEAL_MAX,
+    })
+
+
+# ---------- API: Lista de compras ----------
+
+@app.route("/api/compras/generar", methods=["POST"])
+@manejar_errores_api
+def api_generar_lista_compras():
+    datos = request.get_json(force=True)
+    dieta = datos.get("dieta")
+
+    if not dieta or "comidas" not in dieta:
+        return jsonify({"error": "Falta el plan de dieta para generar la lista"}), 400
+
+    items = compras.generar_items_desde_dieta(dieta)
+    token = token_actual()
+
+    try:
+        database.reemplazar_lista_compras(token, items)
+        guardados = database.obtener_lista_compras(token)
+    except RuntimeError as e:
+        agrupado = compras.agrupar_por_categoria([{**i, "comprado": False} for i in items])
+        return jsonify({"grupos": agrupado, "aviso": str(e)})
+
+    agrupado = compras.agrupar_por_categoria(guardados)
+    return jsonify({"grupos": agrupado})
+
+
+@app.route("/api/compras", methods=["GET"])
+@manejar_errores_api
+def api_obtener_compras():
+    try:
+        items = database.obtener_lista_compras(token_actual())
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 200
+
+    return jsonify({"grupos": compras.agrupar_por_categoria(items)})
+
+
+@app.route("/api/compras/toggle", methods=["POST"])
+@manejar_errores_api
+def api_toggle_compra():
+    datos = request.get_json(force=True)
+    item = datos.get("item")
+    comprado = bool(datos.get("comprado"))
+
+    if not item:
+        return jsonify({"error": "Falta el item"}), 400
+
+    try:
+        database.marcar_item_comprado(token_actual(), item, comprado)
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 200
+
+    return jsonify({"ok": True})
+
+
 # ---------- API: Asistente ForgeFit (IA) ----------
 
 @app.route("/api/asistente", methods=["POST"])
+@manejar_errores_api
 def api_asistente():
     datos = request.get_json(force=True)
     pregunta = (datos.get("pregunta") or "").strip()
@@ -479,4 +778,6 @@ def api_asistente():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000, threaded=True)
+    # host="0.0.0.0" permite conectarse desde otros dispositivos de tu misma red
+    # (por ejemplo, tu celular) usando la IP local de esta compu en vez de localhost.
+    app.run(host="0.0.0.0", debug=True, port=5000, threaded=True)

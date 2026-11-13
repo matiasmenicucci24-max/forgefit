@@ -104,7 +104,7 @@ create table fotos_progreso (
 
 -- ---------- Perfil (una fila por usuario) ----------
 
-create table perfil (
+create table if not exists perfil (
     user_id uuid not null default auth.uid() references auth.users(id) on delete cascade primary key,
     peso numeric,
     altura numeric,
@@ -114,13 +114,39 @@ create table perfil (
     objetivo text
 );
 
+-- ---------- Registro real de entrenamientos (series con peso/reps) ----------
+
+create table if not exists registro_series (
+    id bigint generated always as identity primary key,
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+    fecha timestamptz not null default now(),
+    ejercicio text not null,
+    grupo text not null,
+    serie_numero integer not null,
+    peso numeric not null,
+    reps integer not null,
+    es_pr boolean not null default false
+);
+
+-- ---------- Lista de compras ----------
+
+create table if not exists lista_compras (
+    user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+    item text not null,
+    categoria text not null default 'almacen',
+    comprado boolean not null default false,
+    primary key (user_id, item)
+);
+
 -- ---------- Índices ----------
 
-create index idx_historial_usuario_fecha on historial (user_id, fecha desc);
-create index idx_rutinas_usuario_fecha on rutinas_generadas (user_id, fecha desc);
-create index idx_dietas_usuario_fecha on dietas_generadas (user_id, fecha desc);
-create index idx_medidas_usuario_fecha on medidas (user_id, fecha desc);
-create index idx_fotos_usuario_fecha on fotos_progreso (user_id, fecha desc);
+create index if not exists idx_historial_usuario_fecha on historial (user_id, fecha desc);
+create index if not exists idx_rutinas_usuario_fecha on rutinas_generadas (user_id, fecha desc);
+create index if not exists idx_dietas_usuario_fecha on dietas_generadas (user_id, fecha desc);
+create index if not exists idx_medidas_usuario_fecha on medidas (user_id, fecha desc);
+create index if not exists idx_fotos_usuario_fecha on fotos_progreso (user_id, fecha desc);
+create index if not exists idx_series_usuario_fecha on registro_series (user_id, fecha desc);
+create index if not exists idx_series_usuario_ejercicio on registro_series (user_id, ejercicio);
 
 -- ---------- Row Level Security: cada usuario solo ve y modifica sus datos ----------
 
@@ -132,6 +158,8 @@ alter table habitos_config enable row level security;
 alter table medidas enable row level security;
 alter table fotos_progreso enable row level security;
 alter table perfil enable row level security;
+alter table registro_series enable row level security;
+alter table lista_compras enable row level security;
 
 create policy "cada usuario ve y edita solo lo suyo" on historial
     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -155,4 +183,10 @@ create policy "cada usuario ve y edita solo lo suyo" on fotos_progreso
     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "cada usuario ve y edita solo lo suyo" on perfil
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on registro_series
+    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "cada usuario ve y edita solo lo suyo" on lista_compras
     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

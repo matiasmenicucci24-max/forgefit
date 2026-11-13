@@ -1,0 +1,18 @@
+[
+  {"id": "agua", "nombre": "Tomar 2 litros de agua", "categoria": "fisico"},
+  {"id": "entrenar", "nombre": "Entrenar o moverte 30 min", "categoria": "fisico"},
+  {"id": "correr", "nombre": "Salir a correr o caminar", "categoria": "fisico"},
+  {"id": "dormir", "nombre": "Dormir al menos 7 horas", "categoria": "fisico"},
+  {"id": "estirar", "nombre": "Estirar o hacer movilidad", "categoria": "fisico"},
+  {"id": "comida_real", "nombre": "Comer sin ultraprocesados hoy", "categoria": "fisico"},
+  {"id": "verduras", "nombre": "Comer verduras o fruta", "categoria": "fisico"},
+  {"id": "postura", "nombre": "Cuidar la postura al sentarte", "categoria": "fisico"},
+  {"id": "meditar", "nombre": "Meditar o respirar 5 min", "categoria": "mental"},
+  {"id": "sin_pantallas", "nombre": "Un rato sin pantallas antes de dormir", "categoria": "mental"},
+  {"id": "gratitud", "nombre": "Anotar algo por lo que estás agradecido", "categoria": "mental"},
+  {"id": "leer", "nombre": "Leer 10 minutos", "categoria": "mental"},
+  {"id": "conectar", "nombre": "Hablar con alguien que te importa", "categoria": "mental"},
+  {"id": "organizar", "nombre": "Planificar el día siguiente", "categoria": "mental"},
+  {"id": "aire_libre", "nombre": "Pasar tiempo al aire libre", "categoria": "mental"},
+  {"id": "sin_alcohol", "nombre": "Día sin alcohol", "categoria": "fisico"}
+]

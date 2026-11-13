@@ -9,6 +9,7 @@ filtren automáticamente los datos de cada usuario — nadie puede ver ni tocar
 los datos de otra persona, ni aunque conozca la URL o la anon key.
 """
 import os
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -76,6 +77,33 @@ def obtener_rutinas(token: str, limite: int = 20) -> list:
         .execute()
     )
     return respuesta.data
+
+
+def marcar_rutina_activa(token: str, rutina_id: int) -> None:
+    """Marca una rutina generada como 'la activa' (la que usa el resto de la
+    app) y desmarca cualquier otra que lo fuera antes. Solo puede haber una
+    rutina activa por usuario a la vez."""
+    client = get_client(token)
+    client.table("rutinas_generadas").update({"activa": False}).neq("id", rutina_id).execute()
+    client.table("rutinas_generadas").update({"activa": True}).eq("id", rutina_id).execute()
+
+
+def obtener_rutina_activa(token: str) -> dict | None:
+    """Devuelve la rutina marcada como activa. Si el usuario todavía no marcó
+    ninguna (por ejemplo, cuentas creadas antes de esta función), devuelve la
+    última generada como respaldo, para no dejar a nadie sin nada."""
+    respuesta = (
+        get_client(token)
+        .table("rutinas_generadas")
+        .select("*")
+        .eq("activa", True)
+        .limit(1)
+        .execute()
+    )
+    if respuesta.data:
+        return respuesta.data[0]
+    ultimas = obtener_rutinas(token, limite=1)
+    return ultimas[0] if ultimas else None
 
 
 # ---------- Dietas generadas ----------
@@ -194,7 +222,7 @@ def guardar_foto(token: str, imagen_base64: str, nota: str = "") -> dict:
     return respuesta.data[0] if respuesta.data else fila
 
 
-def obtener_fotos(token: str, limite: int = 40) -> list:
+def obtener_fotos(token: str, limite: int = 20) -> list:
     respuesta = (
         get_client(token)
         .table("fotos_progreso")
@@ -208,3 +236,67 @@ def obtener_fotos(token: str, limite: int = 40) -> list:
 
 def borrar_foto(token: str, item_id: int) -> None:
     get_client(token).table("fotos_progreso").delete().eq("id", item_id).execute()
+
+
+# ---------- Registro de entrenamientos ----------
+
+def guardar_serie(token: str, fila: dict) -> dict:
+    respuesta = get_client(token).table("registro_series").insert(fila).execute()
+    return respuesta.data[0] if respuesta.data else fila
+
+
+def obtener_series_ejercicio(token: str, ejercicio: str, limite: int = 200) -> list:
+    respuesta = (
+        get_client(token)
+        .table("registro_series")
+        .select("fecha, peso, reps")
+        .eq("ejercicio", ejercicio)
+        .order("fecha", desc=False)
+        .limit(limite)
+        .execute()
+    )
+    return respuesta.data
+
+
+def obtener_todas_las_series(token: str, dias: int = 90, limite: int = 2000) -> list:
+    desde = (datetime.now(timezone.utc) - timedelta(days=dias)).isoformat()
+    respuesta = (
+        get_client(token)
+        .table("registro_series")
+        .select("fecha, ejercicio, grupo, peso, reps, es_pr")
+        .gte("fecha", desde)
+        .order("fecha", desc=False)
+        .limit(limite)
+        .execute()
+    )
+    return respuesta.data
+
+
+def obtener_ejercicios_registrados(token: str) -> list:
+    respuesta = (
+        get_client(token)
+        .table("registro_series")
+        .select("ejercicio")
+        .execute()
+    )
+    return sorted({fila["ejercicio"] for fila in respuesta.data})
+
+
+# ---------- Lista de compras ----------
+
+def reemplazar_lista_compras(token: str, items: list) -> None:
+    """Borra la lista anterior y guarda la nueva completa (se regenera cada vez
+    que el usuario pide una lista nueva a partir de una dieta)."""
+    client = get_client(token)
+    client.table("lista_compras").delete().neq("item", "").execute()
+    if items:
+        client.table("lista_compras").insert(items).execute()
+
+
+def obtener_lista_compras(token: str) -> list:
+    respuesta = get_client(token).table("lista_compras").select("*").execute()
+    return respuesta.data
+
+
+def marcar_item_comprado(token: str, item: str, comprado: bool) -> None:
+    get_client(token).table("lista_compras").update({"comprado": comprado}).eq("item", item).execute()

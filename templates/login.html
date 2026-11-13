@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForgeFit — Iniciar sesión</title>
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<meta name="theme-color" content="#FF5A36">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-body">
+<div class="auth-shell">
+    <div class="auth-card">
+        <div class="brand" style="justify-content:center; margin-bottom:24px;">
+            <span class="brand-mark">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v10l8 5 8-5V7l-8-5z" stroke="#1A0D08" stroke-width="2" stroke-linejoin="round"/><path d="M12 7v10M8 9v6M16 9v6" stroke="#1A0D08" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            ForgeFit
+        </div>
+        <h1>Bienvenido de nuevo</h1>
+        <p class="auth-sub">Iniciá sesión para ver tu progreso.</p>
+
+        <form id="form-login">
+            <div class="field" style="margin-bottom:14px;">
+                <label for="email">Email</label>
+                <input type="email" id="email" required autocomplete="email">
+            </div>
+            <div class="field" style="margin-bottom:6px;">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" required autocomplete="current-password">
+            </div>
+            <div id="login-error" class="auth-error" style="display:none;"></div>
+            <button type="submit" class="btn-primary" id="btn-login">Iniciar sesión</button>
+        </form>
+
+        <p class="auth-footer">¿No tenés cuenta? <a href="/signup">Creá una acá</a></p>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "desayuno": [
+    {"nombre": "Avena con leche y banana", "kcal_100g": 120, "proteina_100g": 4, "carbos_100g": 20, "grasas_100g": 2.5, "porcion_g": 250, "categoria": "almacen"},
+    {"nombre": "Huevos revueltos con pan integral", "kcal_100g": 180, "proteina_100g": 11, "carbos_100g": 14, "grasas_100g": 9, "porcion_g": 200, "categoria": "lacteos_huevos"},
+    {"nombre": "Yogur griego con frutos secos", "kcal_100g": 150, "proteina_100g": 10, "carbos_100g": 8, "grasas_100g": 8, "porcion_g": 200, "categoria": "lacteos_huevos"}
+  ],
+  "almuerzo": [
+    {"nombre": "Pechuga de pollo con arroz y verduras", "kcal_100g": 165, "proteina_100g": 14, "carbos_100g": 18, "grasas_100g": 3, "porcion_g": 400, "categoria": "carniceria"},
+    {"nombre": "Carne magra con batata al horno", "kcal_100g": 175, "proteina_100g": 15, "carbos_100g": 16, "grasas_100g": 5, "porcion_g": 400, "categoria": "carniceria"},
+    {"nombre": "Salmón con quinoa y ensalada", "kcal_100g": 190, "proteina_100g": 13, "carbos_100g": 15, "grasas_100g": 8, "porcion_g": 380, "categoria": "pescaderia"}
+  ],
+  "merienda": [
+    {"nombre": "Fruta con puñado de almendras", "kcal_100g": 140, "proteina_100g": 3, "carbos_100g": 15, "grasas_100g": 8, "porcion_g": 150, "categoria": "verduleria"},
+    {"nombre": "Batido de proteína con leche", "kcal_100g": 90, "proteina_100g": 8, "carbos_100g": 6, "grasas_100g": 3, "porcion_g": 300, "categoria": "lacteos_huevos"},
+    {"nombre": "Tostadas con palta", "kcal_100g": 160, "proteina_100g": 4, "carbos_100g": 14, "grasas_100g": 10, "porcion_g": 150, "categoria": "verduleria"}
+  ],
+  "cena": [
+    {"nombre": "Pescado blanco con vegetales al vapor", "kcal_100g": 110, "proteina_100g": 16, "carbos_100g": 5, "grasas_100g": 3, "porcion_g": 350, "categoria": "pescaderia"},
+    {"nombre": "Tortilla de claras con espinaca", "kcal_100g": 95, "proteina_100g": 12, "carbos_100g": 2, "grasas_100g": 4, "porcion_g": 300, "categoria": "lacteos_huevos"},
+    {"nombre": "Pechuga de pavo con ensalada mixta", "kcal_100g": 120, "proteina_100g": 15, "carbos_100g": 6, "grasas_100g": 3, "porcion_g": 350, "categoria": "carniceria"}
+  ]
+}

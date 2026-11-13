@@ -20,6 +20,18 @@ def _client_anonimo():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+def _datos_sesion(respuesta, requiere_confirmacion: bool = False) -> dict:
+    return {
+        "ok": True,
+        "requiere_confirmacion": requiere_confirmacion,
+        "access_token": respuesta.session.access_token,
+        "refresh_token": respuesta.session.refresh_token,
+        "expires_in": respuesta.session.expires_in,
+        "user_id": respuesta.user.id,
+        "email": respuesta.user.email,
+    }
+
+
 def registrarse(email: str, password: str) -> dict:
     """Crea una cuenta nueva. Devuelve {'ok': True} o {'ok': False, 'error': str}."""
     try:
@@ -32,14 +44,7 @@ def registrarse(email: str, password: str) -> dict:
         # Supabase puede requerir confirmación de email según la configuración del proyecto.
         return {"ok": True, "requiere_confirmacion": True}
 
-    return {
-        "ok": True,
-        "requiere_confirmacion": False,
-        "access_token": respuesta.session.access_token,
-        "refresh_token": respuesta.session.refresh_token,
-        "user_id": respuesta.user.id,
-        "email": respuesta.user.email,
-    }
+    return _datos_sesion(respuesta, requiere_confirmacion=False)
 
 
 def iniciar_sesion(email: str, password: str) -> dict:
@@ -50,13 +55,21 @@ def iniciar_sesion(email: str, password: str) -> dict:
     except Exception as e:
         return {"ok": False, "error": _traducir_error(str(e))}
 
-    return {
-        "ok": True,
-        "access_token": respuesta.session.access_token,
-        "refresh_token": respuesta.session.refresh_token,
-        "user_id": respuesta.user.id,
-        "email": respuesta.user.email,
-    }
+    return _datos_sesion(respuesta)
+
+
+def refrescar_sesion(refresh_token: str) -> dict:
+    """Pide un access_token nuevo usando el refresh_token, sin pedir contraseña de nuevo.
+    Se usa automáticamente cuando el token de sesión está por vencer (antes.py)."""
+    if not refresh_token:
+        return {"ok": False, "error": "No hay refresh_token disponible."}
+    try:
+        client = _client_anonimo()
+        respuesta = client.auth.refresh_session(refresh_token)
+    except Exception as e:
+        return {"ok": False, "error": _traducir_error(str(e))}
+
+    return _datos_sesion(respuesta)
 
 
 def _traducir_error(mensaje: str) -> str:
@@ -69,4 +82,6 @@ def _traducir_error(mensaje: str) -> str:
         return "La contraseña debe tener al menos 6 caracteres."
     if "unable to validate email" in mensaje_lower or "invalid email" in mensaje_lower:
         return "El email no es válido."
+    if "refresh_token_not_found" in mensaje_lower or "invalid refresh token" in mensaje_lower:
+        return "Tu sesión venció. Iniciá sesión de nuevo."
     return f"No se pudo completar la operación: {mensaje}"

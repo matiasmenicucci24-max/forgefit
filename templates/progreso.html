@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>document.documentElement.setAttribute("data-theme", localStorage.getItem("forgefit-theme") || "dark");</script>
+<title>ForgeFit — Progreso</title>
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<meta name="theme-color" content="#FF5A36">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+
+    <aside class="sidebar no-print">
+        <div class="brand">
+            <span class="brand-mark">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v10l8 5 8-5V7l-8-5z" stroke="#1A0D08" stroke-width="2" stroke-linejoin="round"/><path d="M12 7v10M8 9v6M16 9v6" stroke="#1A0D08" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            ForgeFit
+        </div>
+        <nav class="nav">
+            <span class="nav-section-label">Entrenar</span>
+            <a class="nav-item" href="/">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></span>
+                Calculadora
+            </a>
+            <a class="nav-item" href="/rutinas">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M4 9l3-3 2 2-3 3-2-2zm9 9l3-3 2 2-3 3-2-2zM2 22l4-4M18 6l4-4"/></svg></span>
+                Rutinas
+            </a>
+            <a class="nav-item" href="/entrenar">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M4 9l3-3 2 2-3 3-2-2zm9 9l3-3 2 2-3 3-2-2zM2 22l4-4M18 6l4-4"/></svg></span>
+                Entrenar
+            </a>
+            <a class="nav-item" href="/dietas">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M8 2v2M16 2v2M6 8h12l-1 12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 8z"/></svg></span>
+                Dietas
+            </a>
+            <span class="nav-section-label">Bienestar</span>
+            <a class="nav-item" href="/habitos">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+                Hábitos
+            </a>
+            <a class="nav-item" href="/compras">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+                Compras
+            </a>
+            <span class="nav-section-label">Seguimiento</span>
+            <a class="nav-item" href="/historial">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg></span>
+                Historial
+            </a>
+            <a class="nav-item active" href="/progreso">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+                Progreso
+            </a>
+        </nav>
+        <div class="sesion-usuario">
+            <span class="sesion-email">{{ session.email }}</span>
+            <a href="{{ url_for('logout') }}">Salir</a>
+        </div>
+        <div class="sidebar-footer">
+            <strong>Tip del día</strong>
+            Las medidas cuentan una historia que la balanza sola no cuenta.
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="page-hero no-print">
+            <div class="eyebrow"><span class="dot"></span> Tu resumen</div>
+            <h1>Todo tu progreso<br>en un solo lugar</h1>
+            <p>Resumen semanal automático, medidas corporales y tus fotos de evolución.</p>
+            <svg class="hero-graphic" width="160" height="160" viewBox="0 0 200 200" fill="none">
+                <rect x="30" y="30" width="60" height="60" rx="10" stroke="#FF5A36" stroke-width="2.5" opacity="0.4"/>
+                <rect x="110" y="30" width="60" height="60" rx="10" stroke="#5EEAD4" stroke-width="2.5" opacity="0.4"/>
+                <rect x="30" y="110" width="60" height="60" rx="10" stroke="#FFC857" stroke-width="2.5" opacity="0.4"/>
+                <rect x="110" y="110" width="60" height="60" rx="10" stroke="#8A8F9C" stroke-width="2.5" opacity="0.4"/>
+            </svg>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">
+                <span class="card-icon" style="color:var(--mint);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+                Resumen de esta semana <span id="resumen-rango" style="color:var(--stone); font-weight:400; font-size:0.85rem; margin-left:6px;"></span>
+            </h2>
+            <div class="resumen-grid" id="resumen-grid"></div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">
+                <span class="card-icon" style="color:var(--mint);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg></span>
+                Progresión de fuerza
+            </h2>
+            <div class="field" style="max-width:280px; margin-bottom:16px;">
+                <label for="selector-ejercicio-progresion">Ejercicio</label>
+                <select id="selector-ejercicio-progresion"></select>
+            </div>
+            <div id="progresion-resumen"></div>
+            <canvas id="grafico-progresion" height="90"></canvas>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></span>
+                Volumen semanal real vs. recomendado
+            </h2>
+            <div id="volumen-semanal-real"></div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+                Constancia — últimas 12 semanas
+            </h2>
+            <div id="calendario-heatmap"></div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V9M10 21V3M16 21v-7M22 21H2"/></svg></span>
+                Medidas corporales
+            </h2>
+            <form id="form-medidas">
+                <div class="form-grid">
+                    <div class="field"><label for="m-cintura">Cintura (cm)</label><input type="number" id="m-cintura" step="0.1"></div>
+                    <div class="field"><label for="m-cadera">Cadera (cm)</label><input type="number" id="m-cadera" step="0.1"></div>
+                    <div class="field"><label for="m-pecho">Pecho (cm)</label><input type="number" id="m-pecho" step="0.1"></div>
+                    <div class="field"><label for="m-brazo">Brazo (cm)</label><input type="number" id="m-brazo" step="0.1"></div>
+                    <div class="field span-2"><label for="m-pierna">Pierna (cm)</label><input type="number" id="m-pierna" step="0.1"></div>
+                </div>
+                <button type="submit" class="btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                    Guardar medidas de hoy
+                </button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">
+                <span class="card-icon" style="color:var(--mint);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg></span>
+                Evolución de medidas
+            </h2>
+            <canvas id="grafico-medidas" height="90"></canvas>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">
+                <span class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg></span>
+                Fotos de progreso
+            </h2>
+            <div class="foto-upload-zone" id="foto-upload-zone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                <div>Hacé clic para subir una foto de hoy</div>
+            </div>
+            <input type="file" id="foto-input" accept="image/*" style="display:none;">
+            <div class="galeria-fotos" id="galeria-fotos"></div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
